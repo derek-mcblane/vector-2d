@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include <array>
+#include <algorithm>
 #include <iostream>
 #include <optional>
 
