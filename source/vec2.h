@@ -281,7 +281,7 @@ extents(const Vec2Container& vec2s)
 
 } // namespace dm
 
-#if (__cplusplus >= 202002L)
+#if (__cpp_lib_format >= 201907L)
 #include <format>
 template <typename T>
 struct std::formatter<dm::Vec2<T>> : std::formatter<std::string>
