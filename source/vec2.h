@@ -2,8 +2,8 @@
 
 #include <cmath>
 
-#include <array>
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <optional>
 
@@ -280,3 +280,15 @@ extents(const Vec2Container& vec2s)
 }
 
 } // namespace dm
+
+#if (__cplusplus >= 202002L)
+#include <format>
+template <typename T>
+struct std::formatter<dm::Vec2<T>> : std::formatter<std::string>
+{
+    auto format(dm::Vec2<T> value, format_context& ctx) -> decltype(ctx.out())
+    {
+        return std::format_to(ctx.out(), "<{}, {}>]", value.x(), value.y());
+    }
+};
+#endif
