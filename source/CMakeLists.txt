@@ -1,3 +1,15 @@
-add_library(Vector2D INTERFACE)
-target_compile_features(Vector2D INTERFACE cxx_std_20)
-target_include_directories(Vector2D INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+add_library(Vector INTERFACE)
+add_library(Vector::Vector ALIAS Vector)
+target_compile_features(Vector INTERFACE cxx_std_20)
+target_include_directories(Vector INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+target_sources(Vector
+INTERFACE FILE_SET HEADERS FILES
+    vec2.h
+)
+
+install(TARGETS Vector EXPORT VectorTargets
+    FILE_SET HEADERS INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)

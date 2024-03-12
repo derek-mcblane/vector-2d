@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <numeric>
 #include <optional>
 #include <utility>
 
@@ -15,6 +16,7 @@ class Vec
 {
   private:
     using T = DimensionType;
+    using Indices = std::make_index_sequence<N>;
   public:
     using dimension_type = DimensionType;
     static constexpr size_t n_elements = N;
@@ -95,80 +97,124 @@ class Vec
 
   private:
     template <size_t... I>
-    [[nodiscard]] static constexpr Vec<T, N> operator_negate(const Vec<T, N>& value, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr bool operator_equal_(const Vec<T, N>& lhs, const Vec<T, N>& rhs, std::index_sequence<I...>) noexcept
+    {
+        return ((lhs[I] == rhs[I]) && ...);
+    }
+
+    template <size_t... I>
+    [[nodiscard]] static constexpr bool operator_less_than_(const Vec<T, N>& lhs, const Vec<T, N>& rhs, std::index_sequence<I...>) noexcept
+    {
+        return (((lhs[I] != rhs[I] && lhs[I] < rhs[I]) || lhs[I+1] < rhs[I+1]) || ...);
+    }
+
+    template <size_t... I>
+    [[nodiscard]] static constexpr Vec<T, N> operator_negate_(const Vec<T, N>& value, std::index_sequence<I...>) noexcept
     {
         return {-value[I]...};
     }
 
     template <size_t... I>
-    [[nodiscard]] static constexpr Vec<T, N> operator_minus(const Vec<T, N>& lhs, const Vec<T, N>& rhs, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr Vec<T, N> operator_minus_(const Vec<T, N>& lhs, const Vec<T, N>& rhs, std::index_sequence<I...>) noexcept
     {
         return {(lhs[I] - rhs[I])...};
     }
 
     template <size_t... I>
-    [[nodiscard]] static constexpr Vec<T, N> operator_plus(const Vec<T, N>& lhs, const Vec<T, N>& rhs, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr Vec<T, N> operator_plus_(const Vec<T, N>& lhs, const Vec<T, N>& rhs, std::index_sequence<I...>) noexcept
     {
         return {(lhs[I] + rhs[I])...};
     }
 
     template <typename U, size_t... I>
-    [[nodiscard]] static constexpr Vec<T, N> operator_multiply(const Vec<T, N>& value, const U n, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr Vec<T, N> operator_multiply_(const Vec<T, N>& value, const U n, std::index_sequence<I...>) noexcept
     {
         return {(value[I] * n)...};
     }
 
     template <typename U, size_t... I>
-    [[nodiscard]] static constexpr Vec<T, N> operator_divide(const Vec<T, N>& value, const U n, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr Vec<T, N> operator_divide_(const Vec<T, N>& value, const U n, std::index_sequence<I...>) noexcept
     {
         return {(value[I] / n)...};
     }
 
     template <size_t... I>
-    [[nodiscard]] static constexpr T magnitude_squared_(const Vec<T, N>& value, std::index_sequence<I...>) const noexcept
+    [[nodiscard]] static constexpr std::ostream& operator_output(std::ostream& os, const Vec<T, N>& value, std::index_sequence<I...>)
     {
-        return (value[I] * value[I]) + ...;
+        os << '<';
+        ((os << (I == 0 ? "" : ", ") << value[I]), ...);
+        os << '>';
+        return os;
     }
 
     template <size_t... I>
-    [[nodiscard]] static constexpr std::ostream& operator_output(std::ostream& output, const Vec<T, N>& value, std::index_sequence<I...>)
+    [[nodiscard]] constexpr T magnitude_squared_(std::index_sequence<I...>) const noexcept
     {
-        return output << ... << value[i];
+        return ((elements_[I] * elements_[I]) + ...);
     }
 
   public:
+    [[nodiscard]] friend constexpr bool operator==(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
+    {
+        return Vec<T, N>::operator_equal_(lhs, rhs, Indices{});
+    }
+
+    [[nodiscard]] friend constexpr bool operator!=(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
+    {
+        return !(lhs == rhs);
+    }
+
+    [[nodiscard]] friend constexpr bool operator<(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
+    {
+        return Vec<T, N>::operator_less_than_(lhs, rhs, std::make_index_sequence<N-1>{});
+    }
+
+    [[nodiscard]] friend constexpr bool operator>(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
+    {
+        return rhs < lhs;
+    }
+
+    [[nodiscard]] friend constexpr bool operator<=(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
+    {
+        return !(lhs > rhs);
+    }
+
+    [[nodiscard]] friend constexpr bool operator>=(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
+    {
+        return !(lhs < rhs);
+    }
+
     [[nodiscard]] friend constexpr Vec<T, N> operator-(const Vec<T, N>& value) noexcept
     {
-        return Vec<T, N>::operator_negate(value, std::make_index_sequence<N>{});
+        return Vec<T, N>::operator_negate_(value, Indices{});
     }
 
     [[nodiscard]] friend constexpr Vec<T, N> operator-(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
     {
-        using Indices = std::make_index_sequence<N>;
-        return Vec<T, N>::operator_minus(lhs, rhs, std::make_index_sequence<N>{});
+        return Vec<T, N>::operator_minus_(lhs, rhs, Indices{});
     }
 
     [[nodiscard]] friend constexpr Vec<T, N> operator+(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
     {
-        return Vec<T, N>::operator_plus(lhs, rhs, std::make_index_sequence<N>{});
+        return Vec<T, N>::operator_plus_(lhs, rhs, Indices{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr Vec<T, N> operator*(const Vec<T, N>& value, U n) noexcept
     {
-        return Vec<T, N>::operator_multiply(value, n, std::make_index_sequence<N>{});
+        return Vec<T, N>::operator_multiply_(value, n, Indices{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr Vec<T, N> operator*(U n, const Vec<T, N>& value) noexcept
     {
-        return Vec<T, N>::operator_multiply<U, Indices>(value, n, std::make_index_sequence<N>{});
+        return Vec<T, N>::operator_multiply_(value, n, Indices{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr Vec<T, N> operator/(const Vec<T, N>& value, U n) noexcept
     {
-        return Vec<T, N>::operator_divide<U, Indices>(value, n, std::make_index_sequence<N>{});
+        return Vec<T, N>::operator_divide_(value, n, Indices{});
     }
 
     constexpr Vec<T, N>& operator-=(const Vec<T, N>& other) noexcept
@@ -193,7 +239,7 @@ class Vec
 
     [[nodiscard]] constexpr T magnitude_squared() const noexcept
     {
-        return magnitude_squared_(*this, ;
+        return magnitude_squared_(Indices{});
     }
 
     [[nodiscard]] constexpr double magnitude() const noexcept
@@ -204,36 +250,6 @@ class Vec
     constexpr Vec<T, N>& normalize() noexcept
     {
         return *this /= magnitude();
-    }
-
-    [[nodiscard]] friend constexpr bool operator==(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
-    {
-        return lhs.x() == rhs.x() && lhs.y() == rhs.y();
-    }
-
-    [[nodiscard]] friend constexpr bool operator!=(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
-    {
-        return !(lhs == rhs);
-    }
-
-    [[nodiscard]] friend constexpr bool operator<(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
-    {
-        return (lhs.x() != rhs.x()) ? lhs.x() < rhs.x() : lhs.y() < rhs.y();
-    }
-
-    [[nodiscard]] friend constexpr bool operator>(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
-    {
-        return rhs < lhs;
-    }
-
-    [[nodiscard]] friend constexpr bool operator<=(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
-    {
-        return !(lhs > rhs);
-    }
-
-    [[nodiscard]] friend constexpr bool operator>=(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
-    {
-        return !(lhs < rhs);
     }
 
     [[nodiscard]] static constexpr T distance_squared(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
@@ -259,15 +275,16 @@ class Vec
         return delta.x() + delta.y();
     }
 
-    friend std::ostream& operator<<(std::ostream& output, const Vec<T, N>& value)
+    friend std::ostream& operator<<(std::ostream& os, const Vec<T, N>& value)
     {
-        return output << "{" << operator_output(value, std::make_index_sequence<N>{}) << "}";
+        Vec<T, N>::operator_output(os, value, Indices{});
+        return os;
     }
 
   private:
     [[nodiscard]] static constexpr T abs_difference(T lhs, T rhs) noexcept
     {
-        return std::max(lhs, rhs) - std::min(lhs, rhs);
+        return (lhs < rhs) ? rhs - lhs : lhs - rhs;
     }
 
     [[nodiscard]] static constexpr T abs_difference_x(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
@@ -282,9 +299,15 @@ class Vec
 
     [[nodiscard]] static constexpr Vec<T, N> abs_difference(const Vec<T, N>& lhs, const Vec<T, N>& rhs) noexcept
     {
-        return {abs_difference(lhs.x(), rhs.x()), abs_difference(lhs.y(), rhs.y())};
+        return {abs_difference_x(lhs, rhs), abs_difference_y(lhs, rhs)};
     }
 };
+
+template <typename T>
+using Vec2 = Vec<T, 2>;
+
+template <typename T>
+using Vec3 = Vec<T, 3>;
 
 template <size_t Dimension, typename VecContainer>
 [[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type> min(const VecContainer& vectors)
