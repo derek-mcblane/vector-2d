@@ -11,17 +11,28 @@
 #include <utility>
 
 namespace dm {
+
+namespace math {
+
+template <typename T>
+[[nodiscard]] constexpr T abs_difference(T lhs, T rhs) noexcept
+{
+    return (lhs < rhs) ? rhs - lhs : lhs - rhs;
+}
+
+} // namespace math
+
 namespace geom {
 
 template <typename DimensionType, size_t N>
-class Vec
+class Vector
 {
   private:
     using T = DimensionType;
     using index_sequence = std::make_index_sequence<N>;
 
   public:
-    using vector_type = Vec<T, N>;
+    using vector_type = Vector<T, N>;
     using dimension_type = DimensionType;
 
     static constexpr size_t n_dimensions = N;
@@ -239,15 +250,10 @@ class Vec
     }
 
   private:
-    [[nodiscard]] static constexpr T abs_difference_(T lhs, T rhs) noexcept
-    {
-        return (lhs < rhs) ? rhs - lhs : lhs - rhs;
-    }
-
     template <size_t... I>
     [[nodiscard]] static constexpr vector_type abs_differences_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
     {
-        return {abs_difference_(lhs[I], rhs[I])...};
+        return {math::abs_difference(lhs[I], rhs[I])...};
     }
 
     template <typename U, size_t... I>
@@ -327,10 +333,13 @@ class Vec
 };
 
 template <typename T>
-using Vec2 = Vec<T, 2>;
+using Vec2 = Vector<T, 2>;
 
 template <typename T>
-using Vec3 = Vec<T, 3>;
+using Vec3 = Vector<T, 3>;
+
+template <typename Vector>
+using dimension_type = typename Vector::dimension_type;
 
 namespace internal {
 
@@ -338,12 +347,12 @@ template <std::forward_iterator It, size_t... I>
 [[nodiscard]] std::optional<std::iter_value_t<It>>
 min_extent(It begin, It end, std::index_sequence<I...>)
 {
-    using Vec = std::iter_value_t<It>; 
-    using VecDimT = typename Vec::dimension_type;
+    using VectorT = std::iter_value_t<It>; 
+    using VectorDimT = dimension_type<VectorT>;
     if (begin == end) {
         return {};
     }
-    auto min = Vec::make_repeated(std::numeric_limits<VecDimT>::max());
+    auto min = VectorT::make_repeated(std::numeric_limits<VectorDimT>::max());
     for (It vec_it = begin; vec_it != end; ++vec_it) {
         ((min[I] = std::min(min[I], (*vec_it)[I])), ...);
     }
@@ -354,12 +363,12 @@ template <std::forward_iterator It, size_t... I>
 [[nodiscard]] std::optional<std::iter_value_t<It>>
 max_extent(It begin, It end, std::index_sequence<I...>)
 {
-    using Vec = std::iter_value_t<It>; 
-    using VecDimT = typename Vec::dimension_type;
+    using VectorT = std::iter_value_t<It>; 
+    using VectorDimT = dimension_type<VectorT>;
     if (begin == end) {
         return {};
     }
-    auto max = Vec::make_repeated(std::numeric_limits<VecDimT>::min());
+    auto max = VectorT::make_repeated(std::numeric_limits<VectorDimT>::min());
     for (It vec_it = begin; vec_it != end; ++vec_it) {
         ((max[I] = std::max(max[I], (*vec_it)[I])), ...);
     }
@@ -370,13 +379,13 @@ template <std::forward_iterator It, size_t... I>
 [[nodiscard]] std::optional<std::pair<std::iter_value_t<It>, std::iter_value_t<It>>>
 extents(It begin, It end, std::index_sequence<I...>)
 {
-    using Vec = std::iter_value_t<It>; 
-    using VecDimT = typename Vec::dimension_type;
+    using VectorT = std::iter_value_t<It>; 
+    using VectorDimT = dimension_type<VectorT>;
     if (begin == end) {
         return {};
     }
-    auto min = Vec::make_repeated(std::numeric_limits<VecDimT>::max());
-    auto max = Vec::make_repeated(std::numeric_limits<VecDimT>::min());
+    auto min = VectorT::make_repeated(std::numeric_limits<VectorDimT>::max());
+    auto max = VectorT::make_repeated(std::numeric_limits<VectorDimT>::min());
     for (It vec_it = begin; vec_it != end; ++vec_it) {
         ((min[I] = std::min(min[I], (*vec_it)[I]),
           max[I] = std::max(max[I], (*vec_it)[I])), ...);
@@ -386,93 +395,94 @@ extents(It begin, It end, std::index_sequence<I...>)
 
 }
 
-template <size_t Dimension, typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-min(const VecContainer& vectors)
+template <size_t Dimension, typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+min(It begin, It end)
 {
-    static_assert(Dimension < VecContainer::value_type::n_dimensions);
-    if (vectors.size() == 0) {
-        return {};
-    }
-    const auto min_element = *std::min_element(vectors.cbegin(), vectors.cend(),
+    using VectorT = std::iter_value_t<It>; 
+    static_assert(Dimension < VectorT::n_dimensions);
+    const auto min_element = std::min_element(begin, end,
         [](auto lhs, auto rhs) { return lhs[Dimension] < rhs[Dimension]; });
-    return min_element[Dimension];
+    return (min_element == end) ? std::nullopt :
+        std::optional{(*min_element)[Dimension]};
 }
 
-template <size_t Dimension, typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-max(const VecContainer& vectors)
+template <size_t Dimension, typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+max(It begin, It end)
 {
-    static_assert(Dimension < VecContainer::value_type::n_dimensions);
-    if (vectors.size() == 0) {
-        return {};
-    }
-    const auto max_element = *std::max_element(vectors.cbegin(), vectors.cend(),
+    using VectorT = std::iter_value_t<It>; 
+    static_assert(Dimension < VectorT::n_dimensions);
+    const auto max_element = std::max_element(begin, end,
         [](auto lhs, auto rhs) { return lhs[Dimension] < rhs[Dimension]; });
-    return max_element[Dimension];
+    return (max_element == end) ? std::nullopt :
+        std::optional{(*max_element)[Dimension]};
 }
 
-template <typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-min_x(const VecContainer& vectors)
+template <typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+min_x(It begin, It end)
 {
-    return min<VecContainer::value_type::X>(vectors);
+    return min<std::iter_value_t<It>::X>(begin, end);
 }
 
-template <typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-min_y(const VecContainer& vectors)
+template <typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+min_y(It begin, It end)
 {
-    return min<VecContainer::value_type::Y>(vectors);
+    return min<std::iter_value_t<It>::Y>(begin, end);
 }
 
-template <typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-min_z(const VecContainer& vectors)
+template <typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+min_z(It begin, It end)
 {
-    return min<VecContainer::value_type::Z>(vectors);
+    return min<std::iter_value_t<It>::Z>(begin, end);
 }
 
-template <typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-max_x(const VecContainer& vectors)
+template <typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+max_x(It begin, It end)
 {
-    return max<VecContainer::value_type::X>(vectors);
+    return max<std::iter_value_t<It>::X>(begin, end);
 }
 
-template <typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-max_y(const VecContainer& vectors)
+template <typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+max_y(It begin, It end)
 {
-    return max<VecContainer::value_type::Y>(vectors);
+    return max<std::iter_value_t<It>::Y>(begin, end);
 }
 
-template <typename VecContainer>
-[[nodiscard]] std::optional<typename VecContainer::value_type::dimension_type>
-max_z(const VecContainer& vectors)
+template <typename It>
+[[nodiscard]] std::optional<typename std::iter_value_t<It>::dimension_type>
+max_z(It begin, It end)
 {
-    return max<VecContainer::value_type::Z>(vectors);
+    return max<std::iter_value_t<It>::Z>(begin, end);
 }
 
 template <std::forward_iterator It>
 [[nodiscard]] std::optional<std::iter_value_t<It>>
 min_extent(It begin, It end)
 {
-    return internal::min_extent(begin, end, std::make_index_sequence<std::iter_value_t<It>::n_dimensions>{});
+    using VectorT = std::iter_value_t<It>; 
+    return internal::min_extent(begin, end, std::make_index_sequence<VectorT::n_dimensions>{});
 }
 
 template <std::forward_iterator It>
 [[nodiscard]] std::optional<std::iter_value_t<It>>
 max_extent(It begin, It end)
 {
-    return internal::max_extent(begin, end, std::make_index_sequence<std::iter_value_t<It>::n_dimensions>{});
+    using VectorT = std::iter_value_t<It>; 
+    return internal::max_extent(begin, end, std::make_index_sequence<VectorT::n_dimensions>{});
 }
 
 template <std::forward_iterator It>
 [[nodiscard]] std::optional<std::pair<std::iter_value_t<It>, std::iter_value_t<It>>>
 extents(It begin, It end)
 {
-    return internal::extents(begin, end, std::make_index_sequence<std::iter_value_t<It>::n_dimensions>{});
+    using VectorT = std::iter_value_t<It>; 
+    return internal::extents(begin, end, std::make_index_sequence<VectorT::n_dimensions>{});
 }
 
 } // namespace geom

@@ -178,7 +178,7 @@ TEST(Vec3Test, MinX)
         {1, 2, 3},
         {4, 5, 6}
     };
-    EXPECT_EQ(min_x(vecs), 1);
+    EXPECT_EQ(min_x(std::begin(vecs), std::end(vecs)), 1);
 }
 
 TEST(Vec3Test, MinY)
@@ -187,7 +187,7 @@ TEST(Vec3Test, MinY)
         {1, 2, 3},
         {4, 5, 6}
     };
-    EXPECT_EQ(min_y(vecs), 2);
+    EXPECT_EQ(min_y(std::begin(vecs), std::end(vecs)), 2);
 }
 
 TEST(Vec3Test, MinZ)
@@ -196,7 +196,7 @@ TEST(Vec3Test, MinZ)
         {1, 2, 3},
         {4, 5, 6}
     };
-    EXPECT_EQ(min_z(vecs), 3);
+    EXPECT_EQ(min_z(std::begin(vecs), std::end(vecs)), 3);
 }
 
 TEST(Vec3Test, MaxX)
@@ -205,7 +205,7 @@ TEST(Vec3Test, MaxX)
         {1, 2, 3},
         {4, 5, 6}
     };
-    EXPECT_EQ(max_x(vecs), 4);
+    EXPECT_EQ(max_x(std::begin(vecs), std::end(vecs)), 4);
 }
 
 TEST(Vec3Test, MaxY)
@@ -214,7 +214,7 @@ TEST(Vec3Test, MaxY)
         {1, 2, 3},
         {4, 5, 6}
     };
-    EXPECT_EQ(max_y(vecs), 5);
+    EXPECT_EQ(max_y(std::begin(vecs), std::end(vecs)), 5);
 }
 
 TEST(Vec3Test, MaxZ)
@@ -223,7 +223,7 @@ TEST(Vec3Test, MaxZ)
         {1, 2, 3},
         {4, 5, 6}
     };
-    EXPECT_EQ(max_z(vecs), 6);
+    EXPECT_EQ(max_z(std::begin(vecs), std::end(vecs)), 6);
 }
 
 TEST(Vec3Test, MinExtents)
