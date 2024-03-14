@@ -1,7 +1,6 @@
 #include "gtest/gtest.h"
 
 #include <sstream>
-#include <format>
 
 #include "vec.h"
 using namespace dm::geom;
@@ -229,20 +228,20 @@ TEST(Vec3Test, MaxZ)
 
 TEST(Vec3Test, MinExtents)
 {
-    std::vector<Vec3i> vecs {
+    const std::vector<Vec3i> vecs {
         {1, 5, 3},
         {4, 2, 6}
     };
-    EXPECT_EQ(min_extent(vecs).value(), (Vec3i{1, 2, 3}));
+    EXPECT_EQ(min_extent(vecs.begin(), vecs.end()).value(), (Vec3i{1, 2, 3}));
 }
 
 TEST(Vec3Test, MaxExtents)
 {
-    std::vector<Vec3i> vecs {
+    const std::vector<Vec3i> vecs {
         {1, 5, 3},
         {4, 2, 6}
     };
-    EXPECT_EQ(max_extent(vecs).value(), (Vec3i{4, 5, 6}));
+    EXPECT_EQ(max_extent(vecs.begin(), vecs.end()).value(), (Vec3i{4, 5, 6}));
 }
 
 TEST(Vec3Test, Extents)
@@ -251,5 +250,5 @@ TEST(Vec3Test, Extents)
         {1, 5, 3},
         {4, 2, 6}
     };
-    EXPECT_EQ(extents(vecs).value(), (std::pair{Vec3i{1, 2, 3}, Vec3i{4, 5, 6}}));
+    EXPECT_EQ(extents(vecs.begin(), vecs.end()).value(), (std::pair(Vec3i{1, 2, 3}, Vec3i{4, 5, 6})));
 }
