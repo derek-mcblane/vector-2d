@@ -7,7 +7,6 @@
 #include <iostream>
 #include <numeric>
 #include <optional>
-#include <type_traits>
 #include <utility>
 
 namespace dm {
@@ -46,13 +45,18 @@ class Vec
     }
 
 
-    [[nodiscard]] vector_type make_repeated(const T value) noexcept
+    [[nodiscard]] static constexpr vector_type make_repeated(const T value) noexcept
     {
         vector_type vector;
         for (size_t i = 0; i < N; ++i) {
             vector[i] = value;
         }
         return vector;
+    }
+
+    [[nodiscard]] static constexpr T operator_dot_product(const vector_type& lhs, const vector_type& rhs)
+    {
+        return operator_dot_product_(lhs, rhs, index_sequence{});
     }
 
     [[nodiscard]] static constexpr T distance_squared(const vector_type& lhs, const vector_type& rhs) noexcept
@@ -251,23 +255,16 @@ class Vec
         return {(lhs[I] * rhs[I])...};
     }
 
-    template <typename U, size_t... I>
+    template <size_t... I>
     [[nodiscard]] static constexpr T operator_dot_product_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
     {
-        return ((lhs[I] * rhs[I]) + ...);
-    }
-
-    template <typename U, size_t... I>
-    [[nodiscard]] static constexpr T operator_outer_product_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
-    {
-
         return ((lhs[I] * rhs[I]) + ...);
     }
 
     template <size_t... I>
     [[nodiscard]] constexpr T magnitude_squared_(std::index_sequence<I...>) const noexcept
     {
-        return operator_dot_product_(*this, *this);
+        return operator_dot_product(*this, *this);
     }
 
     template <size_t... I>
@@ -325,16 +322,6 @@ class Vec
         ((os << (I == 0 ? "" : ", ") << value[I]), ...);
         os << '>';
         return os;
-    }
-
-    [[nodiscard]] friend constexpr T operator_dot_product(const vector_type& lhs, const vector_type& rhs)
-    {
-        return operator_dot_product_(lhs, rhs, index_sequence{});
-    }
-
-    [[nodiscard]] friend constexpr T operator_outer_product(const vector_type& lhs, const vector_type& rhs)
-    {
-        return vector_type::operator_outer_product_(lhs, rhs, index_sequence{});
     }
 };
 
@@ -423,9 +410,9 @@ min_extent(const VecContainer& vectors, std::index_sequence<I...>)
         return {};
     }
     using Vec = typename VecContainer::value_type; 
-    const auto dimension_min = std::numeric_limits<typename Vec::dimension_type>::min();
+    const auto dimension_max = std::numeric_limits<typename Vec::dimension_type>::max();
 
-    auto min = Vec::make_repeated(dimension_min);
+    auto min = Vec::make_repeated(dimension_max);
     for (const auto& vector : vectors) {
         ((min[I] = std::min(min[I], vector[I])), ...);
     }
