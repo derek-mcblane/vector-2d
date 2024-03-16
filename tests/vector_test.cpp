@@ -2,7 +2,8 @@
 
 #include <sstream>
 
-#include "vec.h"
+#include "dm/vector.h"
+
 using namespace dm::geom;
 
 using Vec2i = Vec2<int>;

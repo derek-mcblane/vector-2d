@@ -7,7 +7,8 @@ target_include_directories(Vector INTERFACE
 )
 target_sources(Vector
 INTERFACE FILE_SET HEADERS FILES
-    vec.h
+    dm/math.h
+    dm/vector.h
 )
 
 install(TARGETS Vector EXPORT VectorTargets

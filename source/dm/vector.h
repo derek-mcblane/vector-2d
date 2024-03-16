@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dm/math.h"
+
 #include <cmath>
 
 #include <algorithm>
@@ -12,16 +14,6 @@
 
 namespace dm {
 
-namespace math {
-
-template <typename T>
-[[nodiscard]] constexpr T abs_difference(T lhs, T rhs) noexcept
-{
-    return (lhs < rhs) ? rhs - lhs : lhs - rhs;
-}
-
-} // namespace math
-
 namespace geom {
 
 template <typename DimensionType, size_t N>
@@ -29,7 +21,6 @@ class Vector
 {
   private:
     using T = DimensionType;
-    using index_sequence = std::make_index_sequence<N>;
 
   public:
     using vector_type = Vector<T, N>;
@@ -56,19 +47,16 @@ class Vector
         return {0, 0, 1};
     }
 
-
     [[nodiscard]] static constexpr vector_type make_repeated(const T value) noexcept
     {
         vector_type vector;
-        for (size_t i = 0; i < N; ++i) {
-            vector[i] = value;
-        }
+        std::fill_n(vector.elements_.begin(), N, value);
         return vector;
     }
 
     [[nodiscard]] static constexpr T operator_dot_product(const vector_type& lhs, const vector_type& rhs)
     {
-        return operator_dot_product_(lhs, rhs, index_sequence{});
+        return operator_dot_product_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] static constexpr T distance_squared(const vector_type& lhs, const vector_type& rhs) noexcept
@@ -85,13 +73,13 @@ class Vector
 
     [[nodiscard]] static constexpr T chebyshev_distance(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        const auto differences = abs_differences_(lhs, rhs, index_sequence{});
+        const auto differences = abs_differences_(lhs, rhs, std::make_index_sequence<N>{});
         return *std::max_element(differences.elements_.begin(), differences.elements_.end());
     }
 
     [[nodiscard]] static constexpr T manhattan_distance(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        const auto differences = abs_differences_(lhs, rhs, index_sequence{});
+        const auto differences = abs_differences_(lhs, rhs, std::make_index_sequence<N>{});
         return std::accumulate(differences.elements_.begin(), differences.elements_.end(), 0);
     }
 
@@ -147,7 +135,7 @@ class Vector
 
     [[nodiscard]] constexpr T magnitude_squared() const noexcept
     {
-        return magnitude_squared_(index_sequence{});
+        return magnitude_squared_(std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] constexpr double magnitude() const noexcept
@@ -162,7 +150,7 @@ class Vector
 
     [[nodiscard]] friend constexpr bool operator==(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return operator_equal_(lhs, rhs, index_sequence{});
+        return operator_equal_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] friend constexpr bool operator!=(const vector_type& lhs, const vector_type& rhs) noexcept
@@ -192,35 +180,35 @@ class Vector
 
     [[nodiscard]] friend constexpr vector_type operator-(const vector_type& value) noexcept
     {
-        return operator_negate_(value, index_sequence{});
+        return operator_negate_(value, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] friend constexpr vector_type operator-(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return operator_minus_(lhs, rhs, index_sequence{});
+        return operator_minus_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] friend constexpr vector_type operator+(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return operator_plus_(lhs, rhs, index_sequence{});
+        return operator_plus_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator*(const vector_type& value, U n) noexcept
     {
-        return operator_multiply_(value, n, index_sequence{});
+        return operator_multiply_(value, n, std::make_index_sequence<N>{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator*(U n, const vector_type& value) noexcept
     {
-        return operator_multiply_(value, n, index_sequence{});
+        return operator_multiply_(value, n, std::make_index_sequence<N>{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator/(const vector_type& value, U n) noexcept
     {
-        return operator_divide_(value, n, index_sequence{});
+        return operator_divide_(value, n, std::make_index_sequence<N>{});
     }
 
     constexpr vector_type& operator-=(const vector_type& other) noexcept
@@ -245,7 +233,7 @@ class Vector
 
     friend std::ostream& operator<<(std::ostream& os, const vector_type& value)
     {
-        operator_output_(os, value, index_sequence{});
+        operator_output_(os, value, std::make_index_sequence<N>{});
         return os;
     }
 
