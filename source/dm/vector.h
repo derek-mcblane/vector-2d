@@ -23,6 +23,25 @@ namespace geom {
 template <typename T>
 inline constexpr size_t size_v = std::tuple_size_v<T>;
 
+#ifndef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
+namespace internal {
+
+template <typename Lhs, typename Rhs, size_t... I>
+[[nodiscard]] constexpr auto dot_product_(const Lhs& lhs, const Rhs& rhs, std::index_sequence<I...>) noexcept
+{
+    static_assert(size_v<Lhs> == size_v<Rhs>);
+    return ((lhs[I] * rhs[I]) + ...);
+}
+
+template <typename T, size_t... I>
+[[nodiscard]] constexpr T elementwise_absolute_difference_(const T& lhs, const T& rhs, std::index_sequence<I...>) noexcept
+{
+    return {math::absolute_difference(lhs[I], rhs[I])...};
+}
+
+} // namespace internal
+#endif
+
 template <typename T>
 [[nodiscard]] constexpr auto max_element(const T& elements) noexcept
 {
@@ -39,7 +58,11 @@ template <typename Lhs, typename Rhs>
 [[nodiscard]] constexpr auto dot_product(const Lhs& lhs, const Rhs& rhs) noexcept
 {
     static_assert(size_v<Lhs> == size_v<Rhs>);
+#ifdef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
     return element_sum(dm::elementwise::make_product_expression(lhs, rhs));
+#else
+    return internal::dot_product_(lhs, rhs, std::make_index_sequence<size_v<Lhs>>{});
+#endif
 }
 
 template <typename T>
@@ -58,28 +81,44 @@ template <typename Lhs, typename Rhs>
 [[nodiscard]] constexpr auto distance_squared(const Lhs& lhs, const Rhs& rhs) noexcept
 {
     static_assert(size_v<Lhs> == size_v<Rhs>);
+#ifdef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
     return magnitude_squared(dm::elementwise::make_difference_expression(lhs, rhs));
+#else
+    return magnitude_squared(lhs - rhs);
+#endif
 }
 
 template <typename Lhs, typename Rhs>
 [[nodiscard]] constexpr auto distance(const Lhs& lhs, const Rhs& rhs) noexcept
 {
     static_assert(size_v<Lhs> == size_v<Rhs>);
+#ifdef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
     return magnitude(dm::elementwise::make_difference_expression(lhs, rhs));
+#else
+    return magnitude(lhs - rhs);
+#endif
 }
 
 template <typename Lhs, typename Rhs>
 [[nodiscard]] constexpr auto chebyshev_distance(const Lhs& lhs, const Rhs& rhs) noexcept
 {
     static_assert(size_v<Lhs> == size_v<Rhs>);
+#ifdef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
     return max_element(dm::elementwise::make_absolute_difference_expression(lhs, rhs));
+#else
+    return max_element(internal::elementwise_absolute_difference_(lhs, rhs, std::make_index_sequence<size_v<Lhs>>{}));
+#endif
 }
 
 template <typename Lhs, typename Rhs>
 [[nodiscard]] constexpr auto manhattan_distance(const Lhs& lhs, const Rhs& rhs) noexcept
 {
     static_assert(size_v<Lhs> == size_v<Rhs>);
+#ifdef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
     return element_sum(dm::elementwise::make_absolute_difference_expression(lhs, rhs));
+#else
+    return element_sum(internal::elementwise_absolute_difference_(lhs, rhs, std::make_index_sequence<size_v<Lhs>>{}));
+#endif
 }
 
 template <typename T>
@@ -150,7 +189,7 @@ class Vector
     requires elementwise::is_expression_v<Expression>
     [[nodiscard]] static constexpr vector_type from_elementwise_expression(const Expression& other) noexcept
     {
-        return from_elementwise_expression_(value, std::make_index_sequence<N>{});
+        return from_elementwise_expression_(other, std::make_index_sequence<N>{});
     }
 
     template <typename Expression>
@@ -264,25 +303,27 @@ class Vector
         return !(lhs < rhs);
     }
 
+
+#ifndef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
     [[nodiscard]] friend constexpr vector_type operator-(const vector_type& value) noexcept
     {
-        return elementwise_negate_(value, std::make_index_sequence<N>{});
+        return vector_type::elementwise_negate_(value, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] friend constexpr vector_type operator-(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return elementwise_subtract_(lhs, rhs, std::make_index_sequence<N>{});
+        return vector_type::elementwise_subtract_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] friend constexpr vector_type operator+(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return elementwise_add_(lhs, rhs, std::make_index_sequence<N>{});
+        return vector_type::elementwise_add_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator*(const vector_type& value, U n) noexcept
     {
-        return elementwise_multiply_(value, n, std::make_index_sequence<N>{});
+        return vector_type::elementwise_multiply_(value, n, std::make_index_sequence<N>{});
     }
 
     template <typename U>
@@ -294,8 +335,9 @@ class Vector
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator/(const vector_type& value, U n) noexcept
     {
-        return elementwise_divide_(value, n, std::make_index_sequence<N>{});
+        return vector_type::elementwise_divide_(value, n, std::make_index_sequence<N>{});
     }
+#endif
 
     template <typename U>
     constexpr vector_type& operator-=(const U& other) noexcept
@@ -543,10 +585,16 @@ extents(It begin, It end)
 
 } // namespace geom
 
-template <typename DimensionType, size_t N>
-struct elementwise::is_expression<geom::Vector<DimensionType, N>> : public std::true_type {};
-
 } // namespace dm
+
+template <typename DimensionType, size_t N>
+struct dm::elementwise::use_negate<dm::geom::Vector<DimensionType, N>> : public std::true_type {};
+
+template <typename DimensionType, size_t N>
+struct dm::elementwise::use_sum<dm::geom::Vector<DimensionType, N>> : public std::true_type {};
+
+template <typename DimensionType, size_t N>
+struct dm::elementwise::use_difference<dm::geom::Vector<DimensionType, N>> : public std::true_type {};
 
 template <typename DimensionType, size_t N>
 struct std::tuple_size<dm::geom::Vector<DimensionType, N>> : public std::integral_constant<size_t, N> {};
