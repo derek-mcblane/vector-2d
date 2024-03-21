@@ -2,6 +2,8 @@
 
 #include "dm/elementwise.h"
 
+#include <array>
+
 using namespace dm::elementwise;
 
 TEST(Elementwise, Add)
