@@ -1,7 +1,10 @@
 #pragma once
 
+#include "dm/vector_internal.h"
+#include "dm/elementwise.h"
 #include "dm/math.h"
 
+#include <cassert>
 #include <cmath>
 
 #include <algorithm>
@@ -12,11 +15,91 @@
 #include <optional>
 #include <utility>
 
+
 namespace dm {
 
 namespace geom {
 
+template <typename T>
+inline constexpr size_t size_v = std::tuple_size_v<T>;
+
+template <typename T>
+[[nodiscard]] constexpr auto max_element(const T& elements) noexcept
+{
+    return internal::max_element(elements, std::make_index_sequence<size_v<T>>{});
+}
+
+template <typename T>
+[[nodiscard]] constexpr auto element_sum(const T& elements) noexcept
+{
+    return internal::element_sum(elements, std::make_index_sequence<size_v<T>>{});
+}
+
+template <typename Lhs, typename Rhs>
+[[nodiscard]] constexpr auto dot_product(const Lhs& lhs, const Rhs& rhs) noexcept
+{
+    static_assert(size_v<Lhs> == size_v<Rhs>);
+    return element_sum(dm::elementwise::make_product_expression(lhs, rhs));
+}
+
+template <typename T>
+[[nodiscard]] constexpr auto magnitude_squared(const T& elements) noexcept
+{
+    return dot_product(elements, elements);
+}
+
+template <typename T>
+[[nodiscard]] constexpr auto magnitude(const T& elements) noexcept
+{
+    return std::sqrt(magnitude_squared(elements));
+}
+
+template <typename Lhs, typename Rhs>
+[[nodiscard]] constexpr auto distance_squared(const Lhs& lhs, const Rhs& rhs) noexcept
+{
+    static_assert(size_v<Lhs> == size_v<Rhs>);
+    return magnitude_squared(dm::elementwise::make_difference_expression(lhs, rhs));
+}
+
+template <typename Lhs, typename Rhs>
+[[nodiscard]] constexpr auto distance(const Lhs& lhs, const Rhs& rhs) noexcept
+{
+    static_assert(size_v<Lhs> == size_v<Rhs>);
+    return magnitude(dm::elementwise::make_difference_expression(lhs, rhs));
+}
+
+template <typename Lhs, typename Rhs>
+[[nodiscard]] constexpr auto chebyshev_distance(const Lhs& lhs, const Rhs& rhs) noexcept
+{
+    static_assert(size_v<Lhs> == size_v<Rhs>);
+    return max_element(dm::elementwise::make_absolute_difference_expression(lhs, rhs));
+}
+
+template <typename Lhs, typename Rhs>
+[[nodiscard]] constexpr auto manhattan_distance(const Lhs& lhs, const Rhs& rhs) noexcept
+{
+    static_assert(size_v<Lhs> == size_v<Rhs>);
+    return element_sum(dm::elementwise::make_absolute_difference_expression(lhs, rhs));
+}
+
+template <typename T>
+constexpr T& normalize(T& elements) noexcept
+{
+    return elements /= magnitude(elements);
+}
+
+template <typename T>
+struct is_vector : public std::false_type {};
+
+template <typename T>
+inline constexpr bool is_vector_v = is_vector<T>::value;
+
+template <typename Vector>
+requires is_vector_v<Vector>
+using dimension_type = typename Vector::dimension_type;
+
 template <typename DimensionType, size_t N>
+requires std::is_arithmetic_v<DimensionType>
 class Vector
 {
   private:
@@ -29,63 +112,71 @@ class Vector
     static constexpr size_t n_dimensions = N;
     enum Dimension { X, Y, Z };
 
+    template <size_t Dimension>
+    [[nodiscard]] static constexpr vector_type make_unit() noexcept
+    {
+        static_assert(Dimension < N);
+        return make_unit_<Dimension>(std::make_index_sequence<N>{});
+    }
+
+    [[nodiscard]] static constexpr vector_type make_unit(const size_t dimension) noexcept
+    {
+        assert(dimension < N);
+        return make_unit_(dimension, std::make_index_sequence<N>{});
+    }
+
     [[nodiscard]] static constexpr vector_type unit_x() noexcept
     {
-        static_assert(X < N);
-        return {1};
+        return make_unit<X>();
     }
 
     [[nodiscard]] static constexpr vector_type unit_y() noexcept
     {
-        static_assert(Y < N);
-        return {0, 1};
+        return make_unit<Y>();
     }
 
     [[nodiscard]] static constexpr vector_type unit_z() noexcept
     {
-        static_assert(Z < N);
-        return {0, 0, 1};
+        return make_unit<Z>();
     }
 
     [[nodiscard]] static constexpr vector_type make_repeated(const T value) noexcept
     {
-        vector_type vector;
-        std::fill_n(vector.elements_.begin(), N, value);
-        return vector;
+        return make_repeated_(value, std::make_index_sequence<N>{});
     }
 
-    [[nodiscard]] static constexpr T operator_dot_product(const vector_type& lhs, const vector_type& rhs)
+#ifdef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
+    template <typename Expression>
+    requires elementwise::is_expression_v<Expression>
+    [[nodiscard]] static constexpr vector_type from_elementwise_expression(const Expression& other) noexcept
     {
-        return operator_dot_product_(lhs, rhs, std::make_index_sequence<N>{});
+        return from_elementwise_expression_(value, std::make_index_sequence<N>{});
     }
 
-    [[nodiscard]] static constexpr T distance_squared(const vector_type& lhs, const vector_type& rhs) noexcept
+    template <typename Expression>
+    requires elementwise::is_expression_v<Expression>
+    [[nodiscard]] vector_type& operator=(const Expression& other)
     {
-        const auto delta = lhs - rhs;
-        return delta.magnitude_squared();
+        return operator_assign_(other, std::make_index_sequence<N>{});
     }
 
-    [[nodiscard]] static constexpr double distance(const vector_type& lhs, const vector_type& rhs) noexcept
+    template <typename Expression, size_t... I>
+    requires elementwise::is_expression_v<Expression>
+    [[nodiscard]] static constexpr vector_type from_elementwise_expression_(const Expression& other, std::index_sequence<I...>) noexcept
     {
-        const auto delta = lhs - rhs;
-        return delta.magnitude();
+        return {other[I]...};
     }
 
-    [[nodiscard]] static constexpr T chebyshev_distance(const vector_type& lhs, const vector_type& rhs) noexcept
+    template <typename Indexable, size_t... I>
+    [[nodiscard]] vector_type& operator_assign_(const Indexable& other, std::index_sequence<I...>)
     {
-        const auto differences = abs_differences_(lhs, rhs, std::make_index_sequence<N>{});
-        return *std::max_element(differences.elements_.begin(), differences.elements_.end());
+        ((elements_[I] = other[I]), ...);
+        return *this;
     }
-
-    [[nodiscard]] static constexpr T manhattan_distance(const vector_type& lhs, const vector_type& rhs) noexcept
-    {
-        const auto differences = abs_differences_(lhs, rhs, std::make_index_sequence<N>{});
-        return std::accumulate(differences.elements_.begin(), differences.elements_.end(), 0);
-    }
+#endif
 
     // Aggregate initialization
     std::array<T, N> elements_;
-
 
     [[nodiscard]] constexpr T operator[](const size_t i) const
     {
@@ -133,24 +224,19 @@ class Vector
         return elements_[Z];
     }
 
-    [[nodiscard]] constexpr T magnitude_squared() const noexcept
+    [[nodiscard]] constexpr std::size_t size() noexcept
     {
-        return magnitude_squared_(std::make_index_sequence<N>{});
-    }
-
-    [[nodiscard]] constexpr double magnitude() const noexcept
-    {
-        return std::sqrt(magnitude_squared());
+        return N;
     }
 
     constexpr vector_type& normalize() noexcept
     {
-        return *this /= magnitude();
+        return *this /= magnitude(*this);
     }
 
     [[nodiscard]] friend constexpr bool operator==(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return operator_equal_(lhs, rhs, std::make_index_sequence<N>{});
+        return lhs.elements_ == rhs.elements_; 
     }
 
     [[nodiscard]] friend constexpr bool operator!=(const vector_type& lhs, const vector_type& rhs) noexcept
@@ -160,7 +246,7 @@ class Vector
 
     [[nodiscard]] friend constexpr bool operator<(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return operator_less_than_(lhs, rhs, std::make_index_sequence<N-1>{});
+        return lhs.elements_ < rhs.elements_;
     }
 
     [[nodiscard]] friend constexpr bool operator>(const vector_type& lhs, const vector_type& rhs) noexcept
@@ -180,55 +266,59 @@ class Vector
 
     [[nodiscard]] friend constexpr vector_type operator-(const vector_type& value) noexcept
     {
-        return operator_negate_(value, std::make_index_sequence<N>{});
+        return elementwise_negate_(value, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] friend constexpr vector_type operator-(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return operator_minus_(lhs, rhs, std::make_index_sequence<N>{});
+        return elementwise_subtract_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     [[nodiscard]] friend constexpr vector_type operator+(const vector_type& lhs, const vector_type& rhs) noexcept
     {
-        return operator_plus_(lhs, rhs, std::make_index_sequence<N>{});
+        return elementwise_add_(lhs, rhs, std::make_index_sequence<N>{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator*(const vector_type& value, U n) noexcept
     {
-        return operator_multiply_(value, n, std::make_index_sequence<N>{});
+        return elementwise_multiply_(value, n, std::make_index_sequence<N>{});
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator*(U n, const vector_type& value) noexcept
     {
-        return operator_multiply_(value, n, std::make_index_sequence<N>{});
+        return value * n;
     }
 
     template <typename U>
     [[nodiscard]] friend constexpr vector_type operator/(const vector_type& value, U n) noexcept
     {
-        return operator_divide_(value, n, std::make_index_sequence<N>{});
+        return elementwise_divide_(value, n, std::make_index_sequence<N>{});
     }
 
-    constexpr vector_type& operator-=(const vector_type& other) noexcept
+    template <typename U>
+    constexpr vector_type& operator-=(const U& other) noexcept
     {
         return *this = *this - other;
     }
 
-    constexpr vector_type& operator+=(const vector_type& other) noexcept
+    template <typename U>
+    constexpr vector_type& operator+=(const U& other) noexcept
     {
         return *this = *this + other;
     }
 
-    constexpr vector_type& operator*=(T n) noexcept
+    template <typename U>
+    constexpr vector_type& operator*=(const U& other) noexcept
     {
-        return *this = *this * n;
+        return *this = *this * other;
     }
 
-    constexpr vector_type& operator/=(T n) noexcept
+    template <typename U>
+    constexpr vector_type& operator/=(const U& other) noexcept
     {
-        return *this = *this / n;
+        return *this = *this / other;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const vector_type& value)
@@ -238,77 +328,55 @@ class Vector
     }
 
   private:
-    template <size_t... I>
-    [[nodiscard]] static constexpr vector_type abs_differences_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
+    template <size_t... DummyI>
+    [[nodiscard]] static constexpr vector_type make_repeated_(const T value, std::index_sequence<DummyI...>) noexcept
     {
-        return {math::abs_difference(lhs[I], rhs[I])...};
+        return vector_type{(DummyI, value)...};
     }
 
-    template <typename U, size_t... I>
-    [[nodiscard]] static constexpr vector_type operator_elementwise_multiply_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
+    template <size_t Dimension, size_t... I>
+    [[nodiscard]] static constexpr vector_type make_unit_(std::index_sequence<I...>) noexcept
     {
-        return {(lhs[I] * rhs[I])...};
-    }
-
-    template <size_t... I>
-    [[nodiscard]] static constexpr T operator_dot_product_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
-    {
-        return ((lhs[I] * rhs[I]) + ...);
+        return vector_type{(I == Dimension ? 1 : 0)...};
     }
 
     template <size_t... I>
-    [[nodiscard]] constexpr T magnitude_squared_(std::index_sequence<I...>) const noexcept
+    [[nodiscard]] static constexpr vector_type make_unit_(const size_t dimension, std::index_sequence<I...>) noexcept
     {
-        return operator_dot_product(*this, *this);
+        return vector_type{(I == dimension ? 1 : 0)...};
     }
 
+#ifndef VECTOR_USE_ELEMENTWISE_EXPRESSION_TEMPLATES
     template <size_t... I>
-    [[nodiscard]] static constexpr bool operator_equal_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
-    {
-        return ((lhs[I] == rhs[I]) && ...);
-    }
-
-    template <size_t I>
-    [[nodiscard]] static constexpr bool operator_less_than_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I>) noexcept
-    {
-        return lhs[I] < rhs[I];
-    }
-
-    template <size_t... I>
-    [[nodiscard]] static constexpr bool operator_less_than_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
-    {
-        return (((lhs[I] != rhs[I] && lhs[I] < rhs[I]) || lhs[I+1] < rhs[I+1]) || ...);
-    }
-
-    template <size_t... I>
-    [[nodiscard]] static constexpr vector_type operator_negate_(const vector_type& value, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr vector_type elementwise_negate_(const vector_type& value, std::index_sequence<I...>) noexcept
     {
         return {-value[I]...};
     }
 
     template <size_t... I>
-    [[nodiscard]] static constexpr vector_type operator_minus_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr vector_type elementwise_subtract_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
     {
         return {(lhs[I] - rhs[I])...};
     }
 
     template <size_t... I>
-    [[nodiscard]] static constexpr vector_type operator_plus_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr vector_type elementwise_add_(const vector_type& lhs, const vector_type& rhs, std::index_sequence<I...>) noexcept
     {
         return {(lhs[I] + rhs[I])...};
     }
 
     template <typename U, size_t... I>
-    [[nodiscard]] static constexpr vector_type operator_multiply_(const vector_type& value, const U n, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr vector_type elementwise_multiply_(const vector_type& value, const U n, std::index_sequence<I...>) noexcept
     {
         return {(value[I] * n)...};
     }
 
     template <typename U, size_t... I>
-    [[nodiscard]] static constexpr vector_type operator_divide_(const vector_type& value, const U n, std::index_sequence<I...>) noexcept
+    [[nodiscard]] static constexpr vector_type elementwise_divide_(const vector_type& value, const U n, std::index_sequence<I...>) noexcept
     {
         return {(value[I] / n)...};
     }
+#endif
 
     template <size_t... I>
     static constexpr std::ostream& operator_output_(std::ostream& os, const vector_type& value, std::index_sequence<I...>)
@@ -320,14 +388,14 @@ class Vector
     }
 };
 
+template <typename DimensionType, size_t N>
+struct is_vector<Vector<DimensionType, N>> : public std::true_type {};
+
 template <typename T>
 using Vec2 = Vector<T, 2>;
 
 template <typename T>
 using Vec3 = Vector<T, 3>;
-
-template <typename Vector>
-using dimension_type = typename Vector::dimension_type;
 
 namespace internal {
 
@@ -388,7 +456,7 @@ template <size_t Dimension, typename It>
 min(It begin, It end)
 {
     using VectorT = std::iter_value_t<It>; 
-    static_assert(Dimension < VectorT::n_dimensions);
+    static_assert(Dimension < size_v<VectorT>);
     const auto min_element = std::min_element(begin, end,
         [](auto lhs, auto rhs) { return lhs[Dimension] < rhs[Dimension]; });
     return (min_element == end) ? std::nullopt :
@@ -400,7 +468,7 @@ template <size_t Dimension, typename It>
 max(It begin, It end)
 {
     using VectorT = std::iter_value_t<It>; 
-    static_assert(Dimension < VectorT::n_dimensions);
+    static_assert(Dimension < size_v<VectorT>);
     const auto max_element = std::max_element(begin, end,
         [](auto lhs, auto rhs) { return lhs[Dimension] < rhs[Dimension]; });
     return (max_element == end) ? std::nullopt :
@@ -454,7 +522,7 @@ template <std::forward_iterator It>
 min_extent(It begin, It end)
 {
     using VectorT = std::iter_value_t<It>; 
-    return internal::min_extent(begin, end, std::make_index_sequence<VectorT::n_dimensions>{});
+    return internal::min_extent(begin, end, std::make_index_sequence<size_v<VectorT>>{});
 }
 
 template <std::forward_iterator It>
@@ -462,7 +530,7 @@ template <std::forward_iterator It>
 max_extent(It begin, It end)
 {
     using VectorT = std::iter_value_t<It>; 
-    return internal::max_extent(begin, end, std::make_index_sequence<VectorT::n_dimensions>{});
+    return internal::max_extent(begin, end, std::make_index_sequence<size_v<VectorT>>{});
 }
 
 template <std::forward_iterator It>
@@ -470,8 +538,15 @@ template <std::forward_iterator It>
 extents(It begin, It end)
 {
     using VectorT = std::iter_value_t<It>; 
-    return internal::extents(begin, end, std::make_index_sequence<VectorT::n_dimensions>{});
+    return internal::extents(begin, end, std::make_index_sequence<size_v<VectorT>>{});
 }
 
 } // namespace geom
+
+template <typename DimensionType, size_t N>
+struct elementwise::is_expression<geom::Vector<DimensionType, N>> : public std::true_type {};
+
 } // namespace dm
+
+template <typename DimensionType, size_t N>
+struct std::tuple_size<dm::geom::Vector<DimensionType, N>> : public std::integral_constant<size_t, N> {};

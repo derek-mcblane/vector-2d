@@ -12,6 +12,7 @@ include(GoogleTest)
 add_executable(RunUnitTests "")
 target_sources(RunUnitTests
 PRIVATE
+    elementwise_test.cpp
     vector_test.cpp
 )
 target_include_directories(RunUnitTests PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -9,6 +9,7 @@ target_sources(Vector
 INTERFACE FILE_SET HEADERS FILES
     dm/math.h
     dm/vector.h
+    dm/elementwise.h
 )
 
 install(TARGETS Vector EXPORT VectorTargets

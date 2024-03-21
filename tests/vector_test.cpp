@@ -57,12 +57,22 @@ TEST(Vec2Test, Subtract)
 
 TEST(Vec2Test, Multiply)
 {
+    EXPECT_EQ((Vec2i{-3, 2} * 5), (Vec2i{-15, 10}));
+}
+
+TEST(Vec2Test, MultiplyAssign)
+{
     Vec2i a{-3, 2};
     a *= 5;
     EXPECT_EQ(a, (Vec2i{-15, 10}));
 }
 
 TEST(Vec2Test, Divide)
+{
+    EXPECT_EQ((Vec2i{-15, 10} / 5), (Vec2i{-3, 2}));
+}
+
+TEST(Vec2Test, DivideAssign)
 {
     Vec2i a{-15, 10};
     a /= 5;
@@ -92,6 +102,11 @@ TEST(Vec3Test, NotEqual)
 TEST(Vec3Test, LessThan)
 {
     EXPECT_LT((Vec3i{1, 2, 1}), (Vec3i{1, 2, 2}));
+}
+
+TEST(Vec3Test, GreaterThan)
+{
+    EXPECT_GT((Vec3i{2, 1, 1}), (Vec3i{1, 2, 2}));
 }
 
 TEST(Vec3Test, X)
@@ -160,17 +175,17 @@ TEST(Vec3Test, Output)
 
 TEST(Vec3Test, Distance)
 {
-    EXPECT_DOUBLE_EQ(Vec3i::distance(Vec3i{-3, -4, -5}, Vec3i{3, 4, 5}), std::sqrt(6*6 + 8*8 + 10*10));
+    EXPECT_DOUBLE_EQ(distance(Vec3i{-3, -4, -5}, Vec3i{3, 4, 5}), std::sqrt(6*6 + 8*8 + 10*10));
 }
 
 TEST(Vec3Test, ChebyshevDistance)
 {
-    EXPECT_EQ(Vec3i::chebyshev_distance(Vec3i{11, -7, 1}, Vec3i{4, 10, 2}), 17);
+    EXPECT_EQ(chebyshev_distance(Vec3i{11, -7, 1}, Vec3i{4, 10, 2}), 17);
 }
 
 TEST(Vec3Test, ManhattanDistance)
 {
-    EXPECT_EQ(Vec3i::manhattan_distance(Vec3i{-7, 11, 1}, Vec3i{10, 4, 2}), 25);
+    EXPECT_EQ(manhattan_distance(Vec3i{-7, 11, 1}, Vec3i{10, 4, 2}), 25);
 }
 
 TEST(Vec3Test, MinX)
