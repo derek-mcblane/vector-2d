@@ -5,6 +5,7 @@
 #include <array>
 
 using namespace dm::elementwise;
+using namespace dm::elementwise::operators;
 
 TEST(Elementwise, Add)
 {

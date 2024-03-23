@@ -5,6 +5,7 @@
 #include "dm/vector.h"
 
 using namespace dm::geom;
+using namespace dm::elementwise::operators;
 
 using Vec2i = Vec2<int>;
 
@@ -248,7 +249,7 @@ TEST(Vec3Test, MinExtents)
         {1, 5, 3},
         {4, 2, 6}
     };
-    EXPECT_EQ(min_extent(vecs.begin(), vecs.end()).value(), (Vec3i{1, 2, 3}));
+    EXPECT_EQ(min_extent(std::begin(vecs), std::end(vecs)).value(), (Vec3i{1, 2, 3}));
 }
 
 TEST(Vec3Test, MaxExtents)
@@ -257,7 +258,7 @@ TEST(Vec3Test, MaxExtents)
         {1, 5, 3},
         {4, 2, 6}
     };
-    EXPECT_EQ(max_extent(vecs.begin(), vecs.end()).value(), (Vec3i{4, 5, 6}));
+    EXPECT_EQ(max_extent(std::begin(vecs), std::end(vecs)).value(), (Vec3i{4, 5, 6}));
 }
 
 TEST(Vec3Test, Extents)
@@ -266,5 +267,5 @@ TEST(Vec3Test, Extents)
         {1, 5, 3},
         {4, 2, 6}
     };
-    EXPECT_EQ(extents(vecs.begin(), vecs.end()).value(), (std::pair(Vec3i{1, 2, 3}, Vec3i{4, 5, 6})));
+    EXPECT_EQ(extents(std::begin(vecs), std::end(vecs)).value(), (std::pair(Vec3i{1, 2, 3}, Vec3i{4, 5, 6})));
 }

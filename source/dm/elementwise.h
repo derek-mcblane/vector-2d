@@ -1,7 +1,10 @@
 #include "dm/math.h"
 
+#include <cassert>
 #include <cstddef>
 
+#include <functional>
+#include <numeric>
 #include <tuple>
 #include <type_traits>
 
@@ -149,11 +152,34 @@ struct use_all_operators : public std::false_type {};
 template <typename T>
 inline constexpr bool use_all_operators_v = use_all_operators<T>::value;
 
-
 template <typename... Ts>
 struct use_all_operators<OperandExpression<Ts...>> : public std::true_type {};
 
 namespace operators {
+
+template <typename T, typename U>
+requires use_all_operators_v<T> || use_difference_v<T> || 
+         use_all_operators_v<U> || use_difference_v<U>
+[[nodiscard]] constexpr bool operator==(const T& lhs, const U& rhs) noexcept
+{
+    assert(std::size(lhs) == std::size(rhs));
+    return std::equal(std::begin(lhs), std::end(lhs),
+                      std::begin(rhs), std::end(rhs));
+}
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool operator!=(const T& lhs, const U& rhs) noexcept
+{
+    return rhs == lhs;
+}
+
+template <typename T, typename U>
+[[nodiscard]] constexpr bool operator<(const T& lhs, const U& rhs) noexcept
+{
+    assert(std::size(lhs) == std::size(rhs));
+    return std::lexicographical_compare(std::begin(lhs), std::end(lhs),
+                                        std::begin(rhs), std::end(rhs));
+}
 
 template <typename T>
 requires use_all_operators_v<T> || use_negate_v<T>
@@ -163,34 +189,38 @@ requires use_all_operators_v<T> || use_negate_v<T>
 }
 
 template <typename T, typename U>
-requires use_all_operators_v<T> || use_difference_v<T>
+requires use_all_operators_v<T> || use_difference_v<T> || 
+         use_all_operators_v<U> || use_difference_v<U>
 [[nodiscard]] constexpr auto operator-(const T& lhs, const U& rhs) noexcept
 {
     return make_difference_expression(lhs, rhs);
 }
 
 template <typename T, typename U>
-requires use_all_operators_v<T> || use_sum_v<T>
+requires use_all_operators_v<T> || use_sum_v<T> ||
+         use_all_operators_v<U> || use_sum_v<U>
 [[nodiscard]] constexpr auto operator+(const T& lhs, const U& rhs) noexcept
 {
     return make_sum_expression(lhs, rhs);
 }
 
 template <typename T, typename U>
-requires use_all_operators_v<T> || use_product_v<T>
+requires use_all_operators_v<T> || use_product_v<T> ||
+         use_all_operators_v<U> || use_product_v<U>
 [[nodiscard]] constexpr auto operator*(const T& lhs, const U& rhs) noexcept
 {
     return make_product_expression(lhs, rhs);
 }
 
 template <typename T, typename U>
-requires use_all_operators_v<T> || use_quotient_v<T>
+requires use_all_operators_v<T> || use_quotient_v<T> ||
+         use_all_operators_v<U> || use_quotient_v<U>
 [[nodiscard]] constexpr auto operator/(const T& lhs, const U& rhs) noexcept
 {
     return make_quotient_expression(lhs, rhs);
 }
 
-}
+} // namespace dm::operators
 
 } // namespace dm::elementwise
 

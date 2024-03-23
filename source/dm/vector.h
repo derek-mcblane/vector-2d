@@ -122,12 +122,6 @@ template <typename Lhs, typename Rhs>
 }
 
 template <typename T>
-constexpr T& normalize(T& elements) noexcept
-{
-    return elements /= magnitude(elements);
-}
-
-template <typename T>
 struct is_vector : public std::false_type {};
 
 template <typename T>
@@ -217,7 +211,7 @@ class Vector
     // Aggregate initialization
     std::array<T, N> elements_;
 
-    [[nodiscard]] constexpr T operator[](const size_t i) const
+    [[nodiscard]] constexpr const T& operator[](const size_t i) const
     {
         return elements_[i];
     }
@@ -475,7 +469,7 @@ max_extent(It begin, It end, std::index_sequence<I...>)
 
 template <std::forward_iterator It, size_t... I>
 [[nodiscard]] std::optional<std::pair<std::iter_value_t<It>, std::iter_value_t<It>>>
-extents(It begin, It end, std::index_sequence<I...>)
+extents(const It begin, const It end, std::index_sequence<I...>)
 {
     using VectorT = std::iter_value_t<It>; 
     using VectorDimT = dimension_type<VectorT>;
@@ -484,9 +478,11 @@ extents(It begin, It end, std::index_sequence<I...>)
     }
     auto min = VectorT::make_repeated(std::numeric_limits<VectorDimT>::max());
     auto max = VectorT::make_repeated(std::numeric_limits<VectorDimT>::min());
-    for (It vec_it = begin; vec_it != end; ++vec_it) {
-        ((min[I] = std::min(min[I], (*vec_it)[I]),
-          max[I] = std::max(max[I], (*vec_it)[I])), ...);
+    for (It it = begin; it != end; ++it) {
+        ((min[I] = std::min(min[I], (*it)[I])), ...);
+        std::cout << "min: " << min << '\n';
+        ((max[I] = std::max(max[I], (*it)[I])), ...);
+        std::cout << "max: " << max << '\n';
     }
     return std::pair{min, max};
 }
@@ -561,7 +557,7 @@ max_z(It begin, It end)
 
 template <std::forward_iterator It>
 [[nodiscard]] std::optional<std::iter_value_t<It>>
-min_extent(It begin, It end)
+min_extent(const It begin, const It end)
 {
     using VectorT = std::iter_value_t<It>; 
     return internal::min_extent(begin, end, std::make_index_sequence<size_v<VectorT>>{});
@@ -569,7 +565,7 @@ min_extent(It begin, It end)
 
 template <std::forward_iterator It>
 [[nodiscard]] std::optional<std::iter_value_t<It>>
-max_extent(It begin, It end)
+max_extent(const It begin, const It end)
 {
     using VectorT = std::iter_value_t<It>; 
     return internal::max_extent(begin, end, std::make_index_sequence<size_v<VectorT>>{});
@@ -577,10 +573,10 @@ max_extent(It begin, It end)
 
 template <std::forward_iterator It>
 [[nodiscard]] std::optional<std::pair<std::iter_value_t<It>, std::iter_value_t<It>>>
-extents(It begin, It end)
+extents(const It begin, const It end)
 {
-    using VectorT = std::iter_value_t<It>; 
-    return internal::extents(begin, end, std::make_index_sequence<size_v<VectorT>>{});
+    using VectorT = std::iter_value_t<It>;
+    return internal::extents(std::forward<const It>(begin), std::forward<const It>(end), std::make_index_sequence<size_v<VectorT>>{});
 }
 
 } // namespace geom
